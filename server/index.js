@@ -1,8 +1,18 @@
+const fs = require('fs');
+const http = require('http');
+const https = require('https');
 const { randomUUID } = require('crypto');
 const WebSocket = require('ws');
 
 const PORT = Number(process.env.PORT || 3000);
+const HOST = process.env.HOST || '0.0.0.0';
 const HEARTBEAT_INTERVAL = 30000;
+const TLS_CERT = process.env.SSL_CERT_PATH || process.env.TLS_CERT_PATH;
+const TLS_KEY = process.env.SSL_KEY_PATH || process.env.TLS_KEY_PATH;
+const TLS_CA = process.env.SSL_CA_PATH || process.env.TLS_CA_PATH;
+const TLS_PASSPHRASE = process.env.SSL_PASSPHRASE || process.env.TLS_PASSPHRASE;
+
+const useTLS = Boolean(TLS_CERT && TLS_KEY);
 
 const rooms = new Map();
 
@@ -159,7 +169,32 @@ function handleMessage(ws, data) {
   }
 }
 
-const wss = new WebSocket.Server({ port: PORT });
+function createHttpServer() {
+  if (!useTLS) {
+    return http.createServer();
+  }
+
+  const options = {
+    cert: fs.readFileSync(TLS_CERT),
+    key: fs.readFileSync(TLS_KEY),
+  };
+  if (TLS_CA) {
+    const segments = TLS_CA.split(',').map((item) => item.trim()).filter(Boolean);
+    if (segments.length === 1) {
+      options.ca = fs.readFileSync(segments[0]);
+    } else if (segments.length > 1) {
+      options.ca = segments.map((path) => fs.readFileSync(path));
+    }
+  }
+  if (TLS_PASSPHRASE) {
+    options.passphrase = TLS_PASSPHRASE;
+  }
+
+  return https.createServer(options);
+}
+
+const server = createHttpServer();
+const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws) => {
   ws.clientId = makeId();
@@ -199,4 +234,10 @@ wss.on('close', () => {
   clearInterval(interval);
 });
 
-console.log(`sync server listening on ws://localhost:${PORT}`);
+server.listen(PORT, HOST, () => {
+  const scheme = useTLS ? 'wss' : 'ws';
+  console.log(`sync server listening on ${scheme}://${HOST}:${PORT}`);
+  if (!useTLS) {
+    console.log('WARNING: clients on https pages must use wss:// (enable TLS)');
+  }
+});
