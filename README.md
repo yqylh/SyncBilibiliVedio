@@ -1,6 +1,6 @@
 ## 使用
 
-进入任何 bilibili.com / (bangumi | vedio) ，在右上角的弹窗里输入服务器 URL，roomID（提前商议好），Nickname，点击 connect 计科。
+进入任何 bilibili.com / (bangumi | vedio) ，在右上角的弹窗里输入服务器 URL，roomID（提前商议好），Nickname，点击 connect 即可。
 
 ## Chrome安装
 
@@ -26,6 +26,8 @@ npm -v
 ```sh
 sudo certbot certonly --standalone -d yourDomain
 ```
+由于以油猴脚本的方式运行, B站禁止非 https 的链接访问, 所以服务器要提供 SSL 证书,可以通过 Let’s Encrypt 配置
+
 3. 安装项目
 
 ```sh
@@ -38,60 +40,16 @@ npm install
 4. 启动
 
 ```sh
-PORT=3000 \
-SSL_CERT_PATH=~/ssl/cert.pem \
-SSL_KEY_PATH=~/ssl/key.pem \
+PORT=443 \
+SSL_CERT_PATH=/path/to/cert.pem \
+SSL_KEY_PATH=/path/to/key.pem \
 npm start
 ```
 
-如果在本地，可用的链接为 `ws://localhost:3000`
-
+然后你可以在网页输入 Server URL: `wss://yourDomain`
 
 ---
-一下内容为 GPT 生成
-
-# SyncBilibiliVedio
-
-Playback synchronization toolkit for bilibili, including a Tampermonkey userscript and a lightweight WebSocket relay server.
-
-## Components
-
-- `bili-sync.user.js`: userscript that injects a floating panel on bilibili video pages to connect to a sync room.
-- `server/`: Node.js WebSocket relay supporting rooms, presence, and TLS (`ws` / `wss`).
-
-## Running the Relay Server
-
-1. Install dependencies:
-   ```bash
-   cd server
-   npm install
-   ```
-2. Run without TLS (for local HTTP testing only):
-   ```bash
-   PORT=3000 npm start
-   ```
-   > **Note:** HTTPS pages (like bilibili.com) refuse plaintext `ws://` connections. Use TLS (`wss://`) in production.
-
-3. Run with TLS (recommended for real use):
-   ```bash
-   PORT=443 \
-   SSL_CERT_PATH=/path/to/fullchain.pem \
-   SSL_KEY_PATH=/path/to/privkey.pem \
-   npm start
-   ```
-   - Certificates can come from services like [Let’s Encrypt](https://letsencrypt.org/).
-   - Optional variables:
-     - `SSL_CA_PATH` – comma-separated CA bundle files
-     - `SSL_PASSPHRASE` – key passphrase if required
-
-4. Reverse proxy alternative: place nginx/caddy in front to terminate TLS and forward to `ws://127.0.0.1:3000`.
-
-## Userscript Usage
-
-1. Open Tampermonkey → Create new script → paste `bili-sync.user.js` contents → Save & enable.
-2. Visit a bilibili video page. The “Bili Sync” panel will appear (top-right).
-3. Enter the relay server URL (e.g., `wss://your-domain:443`), room ID, and nickname, then click **Connect**.
-4. Ask your friend to connect to the same room. Playback actions (play/pause/seek/rate) will mirror, and the log shows presence updates.
+以下内容为 GPT 生成
 
 ## Notes
 
