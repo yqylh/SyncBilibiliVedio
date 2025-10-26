@@ -1,3 +1,8 @@
+# bilibili 远程同步播放视频
+
+因为 B 站的一起看功能只支持特定番剧，而且并不好用：没法倍速等功能。
+所以用 codex 帮我写了这个工具，本脚本未经过充分测试，所有代码由 codex 编写。
+
 ## 使用
 
 进入任何 bilibili.com / (bangumi | vedio) ，在右上角的弹窗里输入服务器 URL，roomID（提前商议好），Nickname，点击 connect 即可。
@@ -46,16 +51,3 @@ SSL_KEY_PATH=/path/to/key.pem \
 npm start
 ```
 然后你可以在网页输入 Server URL: `wss://yourDomain`
-
----
-以下内容为 GPT 生成
-
-## Notes
-
-- The script automatically handles video element swaps and suppresses echo loops.
-- Heartbeat messages keep participants aligned; adjust `HEARTBEAT_MS` in the script if you need tighter drift correction.
-- Consider protecting your relay with authentication or random room IDs when deploying publicly.
-
-## License
-
-MIT
