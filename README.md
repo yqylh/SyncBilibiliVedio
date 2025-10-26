@@ -33,12 +33,8 @@ npm install
 3. 安装证书
 
 ```sh
-mkdir ~/ssl && cd ~/ssl
-openssl req -x509 -newkey rsa:2048 -nodes -keyout key.pem -out cert.pem -days 365
+sudo certbot certonly --standalone -d yourDomain
 ```
-浏览器默认会认为自签名证书“不受信任”.
-
-如果你有可用域名, 可以快速使用 `Let’s Encrypt` 获取证书. 
 
 4. 启动
 
