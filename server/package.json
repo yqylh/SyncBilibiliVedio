@@ -1,0 +1,19 @@
+{
+  "name": "syncbili-server",
+  "version": "0.1.0",
+  "description": "WebSocket relay server for bilibili playback sync",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "bilibili",
+    "sync",
+    "websocket"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}
