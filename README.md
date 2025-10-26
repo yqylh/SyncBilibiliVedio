@@ -21,19 +21,18 @@ node -v
 npm -v
 ```
 
-2. 安装项目
+2. 安装证书
+
+```sh
+sudo certbot certonly --standalone -d yourDomain
+```
+3. 安装项目
 
 ```sh
 git clone https://github.com/yqylh/SyncBilibiliVedio
 cd SyncBilibiliVedio/
 cd server/
 npm install
-```
-
-3. 安装证书
-
-```sh
-sudo certbot certonly --standalone -d yourDomain
 ```
 
 4. 启动
