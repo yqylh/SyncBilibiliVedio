@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Bilibili Playback Sync
-// @namespace    https://github.com/yinyongqi/syncbili
+// @namespace    https://github.com/yqylh/SyncBilibiliVedio
 // @version      0.1.0
 // @description  Synchronize Bilibili video playback between friends via a shared WebSocket server.
 // @match        https://www.bilibili.com/video/*
