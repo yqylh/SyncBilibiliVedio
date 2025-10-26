@@ -5,7 +5,7 @@
 ## Chrome安装
 
 1. 在 Chrome 安装油猴
-2. 复制 bili-sync.user.js的内容，在油猴点击添加新脚本，覆盖粘贴保存就好了
+2. 通过 [greasy fork](https://greasyfork.org/zh-CN/scripts/553759-bilibili-playback-sync) 安装这个脚本
 
 ## 服务器安装
 
@@ -45,7 +45,6 @@ SSL_CERT_PATH=/path/to/cert.pem \
 SSL_KEY_PATH=/path/to/key.pem \
 npm start
 ```
-
 然后你可以在网页输入 Server URL: `wss://yourDomain`
 
 ---
