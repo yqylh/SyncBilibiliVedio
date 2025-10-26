@@ -43,7 +43,7 @@ openssl req -x509 -newkey rsa:2048 -nodes -keyout key.pem -out cert.pem -days 36
 4. 启动
 
 ```sh
-PORT=443 \
+PORT=3000 \
 SSL_CERT_PATH=~/ssl/cert.pem \
 SSL_KEY_PATH=~/ssl/key.pem \
 npm start
