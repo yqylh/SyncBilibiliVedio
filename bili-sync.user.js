@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Bilibili Playback Sync
+// @name         Bilibili Playback Sync (stable anti-oscillation)
 // @namespace    https://github.com/yqylh/SyncBilibiliVedio
-// @version      0.1.0
-// @description  Synchronize Bilibili video playback between friends via a shared WebSocket server.
+// @version      0.2.0
+// @description  Synchronize Bilibili video playback between friends via a shared WebSocket server. Includes anti-oscillation tweaks.
 // @match        https://www.bilibili.com/video/*
 // @match        https://www.bilibili.com/bangumi/play/*
 // @grant        none
@@ -17,8 +17,20 @@
 
   const CONFIG_KEY = 'bili-sync-config';
   const ID_KEY = 'bili-sync-client-id';
-  const HEARTBEAT_MS = 3000;
-  const SUPPRESS_MS = 200;
+
+  // 调整：降低心跳频率并延长抑制期，先“稳住”
+  const HEARTBEAT_MS = 4000;
+  const SUPPRESS_MS = 900;
+
+  // 纠偏策略参数：更大的死区 + 冷却窗 + 心跳默认只“向前追”
+  const RESYNC = {
+    playPause: 0.70,    // play/pause 偏差超过 0.70s 才 seek
+    seek:      0.40,    // 对用户主动拖动更敏感一些
+    heartbeat: 0.90,    // 心跳追随更克制
+    cooldownMs: 1500,   // 每次纠偏后，至少 1.5s 内不再纠偏
+    rewindOnHeartbeat: true, // 心跳只“向前追”（不回退），防止来回拉扯
+    maxLatencyMs: 300,  // 没有 serverTime 时，延迟补偿最多只加 300ms
+  };
 
   const state = {
     config: loadConfig(),
@@ -30,6 +42,7 @@
     heartbeatTimer: null,
     lastSeekSentAt: 0,
     lastHeartbeatSentAt: 0,
+    lastCorrectionAt: 0, // 最近一次真正 seek 的时间
     ui: {},
     pendingMessages: [],
   };
@@ -103,9 +116,7 @@
         backdrop-filter: blur(6px);
         font-family: "Helvetica Neue", Arial, sans-serif;
       }
-      #bili-sync-panel * {
-        box-sizing: border-box;
-      }
+      #bili-sync-panel * { box-sizing: border-box; }
       #bili-sync-panel h1 {
         margin: 0 0 8px 0;
         font-size: 14px;
@@ -113,10 +124,7 @@
         justify-content: space-between;
         align-items: center;
       }
-      #bili-sync-panel label {
-        display: block;
-        margin-bottom: 8px;
-      }
+      #bili-sync-panel label { display: block; margin-bottom: 8px; }
       #bili-sync-panel input {
         width: 100%;
         border: 1px solid rgba(255, 255, 255, 0.15);
@@ -136,14 +144,8 @@
         background: rgba(0, 153, 255, 0.9);
         color: #fff;
       }
-      #bili-sync-panel button:disabled {
-        cursor: default;
-        opacity: 0.5;
-      }
-      #bili-sync-status {
-        font-size: 11px;
-        color: #9feaf9;
-      }
+      #bili-sync-panel button:disabled { cursor: default; opacity: 0.5; }
+      #bili-sync-status { font-size: 11px; color: #9feaf9; }
       #bili-sync-log {
         margin-top: 10px;
         max-height: 80px;
@@ -152,14 +154,8 @@
         border-radius: 4px;
         padding: 4px 6px;
       }
-      #bili-sync-log p {
-        margin: 0;
-        font-size: 11px;
-      }
-      #bili-sync-clients {
-        margin-top: 6px;
-        font-size: 11px;
-      }
+      #bili-sync-log p { margin: 0; font-size: 11px; }
+      #bili-sync-clients { margin-top: 6px; font-size: 11px; }
     `;
     document.head.appendChild(style);
   }
@@ -465,6 +461,31 @@
     }
   }
 
+  // 只在冷却窗外，且超出对应阈值时才允许纠偏
+  function shouldResync(kind, diff) {
+    const now = Date.now();
+    if (now - state.lastCorrectionAt < RESYNC.cooldownMs) return false;
+    const limit = RESYNC[kind] ?? RESYNC.heartbeat;
+    if (diff <= limit) return false;
+    state.lastCorrectionAt = now;
+    return true;
+  }
+
+  // 延迟补偿：优先使用 serverTime；否则 sentAt 仅限幅补偿，避免时钟差导致过度估计
+  function resolveTargetTime(remoteState, message) {
+    let target = Number(remoteState.currentTime || 0);
+    const serverTime = Number(message.serverTime || 0);
+    const sentAt = Number(message.sentAt || 0);
+    let latency = 0;
+    if (serverTime > 0) {
+      latency = Math.max(0, Date.now() - serverTime);
+    } else if (sentAt > 0) {
+      latency = Math.max(0, Math.min(Date.now() - sentAt, RESYNC.maxLatencyMs));
+    }
+    target += latency / 1000;
+    return Number.isFinite(target) ? Math.max(0, target) : 0;
+  }
+
   function applyRemoteAction(message) {
     const remoteState = message.state || {};
     if (!remoteState.videoId || remoteState.videoId === getVideoId()) {
@@ -479,49 +500,47 @@
           setPlaybackRate(remoteState.playbackRate);
         }
         switch (message.action) {
-          case 'play':
-            if (diff > 0.35) seekTo(targetTime);
+          case 'play': {
+            if (shouldResync('playPause', diff)) seekTo(targetTime);
             playVideo();
             enableHeartbeat();
             break;
-          case 'pause':
-            if (diff > 0.35) seekTo(remoteState.currentTime ?? targetTime);
+          }
+          case 'pause': {
+            if (shouldResync('playPause', diff)) seekTo(remoteState.currentTime ?? targetTime);
             pauseVideo();
             disableHeartbeat();
             break;
-          case 'seek':
-            if (diff > 0.15) seekTo(targetTime);
+          }
+          case 'seek': {
+            if (shouldResync('seek', diff)) seekTo(targetTime);
             break;
-          case 'ratechange':
+          }
+          case 'ratechange': {
             setPlaybackRate(remoteState.playbackRate || 1);
             break;
-          case 'heartbeat':
+          }
+          case 'heartbeat': {
             if (!remoteState.paused) {
-              if (diff > 0.45) seekTo(targetTime);
+              if (RESYNC.rewindOnHeartbeat) {
+                if (shouldResync('heartbeat', diff)) seekTo(targetTime);
+              } else {
+                // 只“向前追”，不回退，避免来回拉扯
+                const ahead = targetTime - current; // 远端比本地“领先”的秒数
+                if (ahead > 0 && shouldResync('heartbeat', ahead)) seekTo(targetTime);
+              }
               enableHeartbeat();
               playVideo().catch(() => {});
             } else if (!video.paused) {
               pauseVideo();
             }
             break;
+          }
           default:
             break;
         }
       });
     }
-  }
-
-  function resolveTargetTime(remoteState, message) {
-    let target = Number(remoteState.currentTime || 0);
-    const sentAt = Number(message.sentAt || message.serverTime || 0);
-    if (sentAt) {
-      const latency = Date.now() - sentAt;
-      if (!Number.isNaN(latency) && latency > -1000 && latency < 600000) {
-        target += latency / 1000;
-      }
-    }
-    if (!Number.isFinite(target)) target = 0;
-    return Math.max(0, target);
   }
 
   function playVideo() {
