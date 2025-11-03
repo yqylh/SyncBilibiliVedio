@@ -28,7 +28,7 @@
     seek:      0.40,    // 对用户主动拖动更敏感一些
     heartbeat: 0.90,    // 心跳追随更克制
     cooldownMs: 1500,   // 每次纠偏后，至少 1.5s 内不再纠偏
-    rewindOnHeartbeat: false, // 心跳只“向前追”（不回退），防止来回拉扯
+    rewindOnHeartbeat: true, // 心跳只“向前追”（不回退），防止来回拉扯
     maxLatencyMs: 300,  // 没有 serverTime 时，延迟补偿最多只加 300ms
   };
 
